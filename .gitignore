@@ -1,0 +1,26 @@
+# ===== Dane i baza =====
+# Odtwarzane skryptami (scraping -> zaladuj_do_bazy.py -> generuj_strone.py),
+# wiec nie trzymamy ich w repo. oferty.html ma dane w srodku i wystarcza.
+oferty.db
+oferty.json
+wroclaw.json
+gdansk.json
+krakow.json
+
+# ===== Python =====
+__pycache__/
+*.pyc
+
+# Wirtualne srodowiska (gdybys kiedys uzywala)
+.venv/
+venv/
+
+# ===== Sekrety =====
+# Pliki z haslami/kluczami API - NIGDY na publiczne repo
+.env
+*.key
+
+# ===== Pliki systemowe =====
+Thumbs.db
+desktop.ini
+.DS_Store
