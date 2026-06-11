@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Git wytlumaczony jak historia wersji dokumentu - dla osob uczacych sie vibe codingu.">
+  <title>Git jak historia wersji dokumentu</title>
+  <style>
+    :root{
+      --a-bg:#f6f8fa; --a-panel:#ffffff; --a-tekst:#1f2328; --a-tekst-cien:#4a525c;
+      --a-ramka:#d0d7de; --a-akcent:#0969da;
+      --a-dodane-tlo:#e6ffec; --a-dodane:#116329;
+      --a-usuniete-tlo:#ffebe9; --a-usuniete:#a40e26;
+      --a-sans:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+      --a-mono:ui-monospace,"Cascadia Code","Consolas",monospace;
+    }
+    *{box-sizing:border-box;}
+    html{scroll-behavior:smooth;}
+    body{margin:0; background:var(--a-bg); color:var(--a-tekst); font-family:var(--a-sans); font-size:18px; line-height:1.6;}
+    section{min-height:100vh; display:flex; flex-direction:column; justify-content:center; padding:6vh 6vw; max-width:1000px; margin:0 auto;}
+    h1{font-size:clamp(28px,6vw,52px); line-height:1.15; color:var(--a-tekst);}
+    h2{font-size:clamp(22px,3.4vw,32px); margin-bottom:.4em; color:var(--a-akcent);}
+    p{max-width:64ch; color:var(--a-tekst);}
+    .panel{background:var(--a-panel); border:1px solid var(--a-ramka); border-radius:10px; padding:16px;}
+    button{font:inherit; cursor:pointer;}
+    .btn{background:var(--a-akcent); color:#fff; border:1px solid transparent; border-radius:6px; padding:10px 14px;}
+    .btn.wtorny{background:#fff; color:var(--a-akcent); border-color:var(--a-ramka);}
+    button:focus-visible, [tabindex]:focus-visible{outline:3px solid var(--a-akcent); outline-offset:2px;}
+    .sr-only{position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0;}
+    .reveal{opacity:0; transform:translateY(24px); transition:opacity .6s ease, transform .6s ease;}
+    .reveal.is-visible{opacity:1; transform:none;}
+    @media (prefers-reduced-motion: reduce){
+      html{scroll-behavior:auto;}
+      .reveal{opacity:1 !important; transform:none !important; transition:none !important;}
+      *{animation:none !important;}
+    }
+    @media (max-width:640px){ body{font-size:16px;} }
+
+    .mini{font-size:14px; color:var(--a-tekst-cien); margin:.2em 0 .5em; text-transform:uppercase; letter-spacing:1px;}
+    .folder{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;}
+    .plik{font-family:var(--a-mono); font-size:14px; background:var(--a-bg); border:1px solid var(--a-ramka); border-radius:6px; padding:6px 10px; color:var(--a-tekst-cien);}
+    .kolumny{display:grid; grid-template-columns:1fr 1fr; gap:16px;}
+    @media (max-width:720px){ .kolumny{grid-template-columns:1fr;} }
+    .lista-wersji{display:flex; flex-direction:column; gap:8px;}
+    .wersja{text-align:left; background:var(--a-bg); border:1px solid var(--a-ramka); border-left:4px solid var(--a-akcent); border-radius:6px; padding:8px 10px; transition:transform .15s, box-shadow .15s;}
+    .wersja:hover{transform:translateX(3px);}
+    .wersja.aktywna{box-shadow:0 0 0 2px var(--a-akcent);}
+    .wersja.galaz-eksperyment{border-left-color:#8250df;}
+    .wersja.scalona{border-left-color:var(--a-dodane);}
+    .wersja .nazwa{font-weight:600; display:block;}
+    .wersja .meta{font-size:13px; color:var(--a-tekst-cien);}
+    .diff-widok{font-family:var(--a-mono); font-size:14px; background:var(--a-bg); border:1px solid var(--a-ramka); border-radius:6px; padding:10px; min-height:80px; white-space:pre; overflow-x:auto;}
+    .diff-widok .add{background:var(--a-dodane-tlo); color:var(--a-dodane); display:block;}
+    .diff-widok .del{background:var(--a-usuniete-tlo); color:var(--a-usuniete); display:block; text-decoration:line-through;}
+    .oczekujaca{font-size:13px; color:#7a5b00; background:#fff3cd; border:1px solid #ead8a0; border-radius:6px; padding:6px 10px; margin-top:8px;}
+    .oczekujaca[hidden]{display:none;}
+    .render-wrap{margin-top:14px;}
+    .render{width:100%; min-height:140px; border:1px solid var(--a-ramka); border-radius:6px; background:#fff;}
+    .akcje{display:flex; gap:10px; flex-wrap:wrap; margin-top:14px;}
+    .info{font-size:14px; color:var(--a-tekst-cien); margin-top:10px; min-height:1.2em;}
+    .tag{font-size:12px; vertical-align:middle; background:#fff3cd; color:#7a5b00; border:1px solid #ead8a0; border-radius:10px; padding:2px 8px;}
+    .polki, .tory{display:grid; grid-template-columns:1fr 1fr; gap:16px;}
+    @media (max-width:720px){ .polki, .tory{grid-template-columns:1fr;} }
+    table.slownik{border-collapse:collapse; width:100%; max-width:760px; margin:10px 0;}
+    table.slownik th, table.slownik td{border:1px solid var(--a-ramka); padding:9px 12px; text-align:left; font-size:16px;}
+    table.slownik th{background:var(--a-panel); color:var(--a-akcent);}
+    .quiz{margin-top:18px; max-width:64ch;}
+    .quiz .pyt{margin:14px 0;}
+    .quiz .odp{margin-top:8px; padding:10px; border-left:3px solid var(--a-dodane); background:var(--a-panel);}
+    .quiz .odp[hidden]{display:none;}
+  </style>
+</head>
+<body>
+  <main>
+
+    <section id="hero">
+      <h1 class="reveal">GIT? To jak<br>historia wersji<br>Twojego dokumentu.</h1>
+      <p class="reveal">Nie jestes programista? Jesli kiedys zapisywales kolejne wersje pliku, zeby moc wrocic do wczesniejszej - rozumiesz Gita w wiekszosci. Przewijaj w dol.</p>
+    </section>
+
+    <section id="diff-commit">
+      <h2 class="reveal">Najpierw zobacz zmiane, potem ja zapisz</h2>
+      <p class="reveal">Krok po kroku: 1) AI cos zmienia w projekcie, 2) ogladasz <strong>diff</strong> - co doszlo, a co znikneło, 3) dopiero potem <strong>swiadomie</strong> zapisujesz nazwana wersje (to <strong>commit</strong>).</p>
+      <div class="reveal panel">
+        <div class="folder" data-folder></div>
+        <div class="kolumny">
+          <div>
+            <h3 class="mini">Historia wersji</h3>
+            <div class="lista-wersji" data-lista></div>
+          </div>
+          <div>
+            <h3 class="mini">Diff (co sie zmienilo)</h3>
+            <div class="diff-widok" data-diff></div>
+            <p class="oczekujaca" data-oczekujaca hidden></p>
+          </div>
+        </div>
+        <div class="render-wrap">
+          <h3 class="mini">Podglad strony (tak to wyglada)</h3>
+          <iframe class="render" data-render sandbox title="Podglad renderowanej strony dokumentu"></iframe>
+        </div>
+        <div class="akcje">
+          <button type="button" class="btn wtorny" data-ai-zmiana>AI wprowadza zmiane</button>
+          <button type="button" class="btn" data-zapisz>Zapisz wersje (commit)</button>
+        </div>
+        <ul class="sr-only" data-tekst-historia aria-label="Tekstowa historia wersji"></ul>
+      </div>
+    </section>
+
+    <section id="restore">
+      <h2 class="reveal">Cofniecie - Twoja siatka bezpieczenstwa</h2>
+      <p class="reveal">Cos sie zepsulo? Klikasz starsza wersje i ja <strong>przywracasz</strong>. Przywrocenie zmienia to, co widzisz teraz - ale historia zostaje nietknieta. Klik wersji pokazuje tez jej diff wzgledem poprzedniej.</p>
+      <div class="reveal panel">
+        <div class="lista-wersji" data-lista></div>
+        <div class="akcje">
+          <button type="button" class="btn wtorny" data-najnowszy>Wroc do najnowszej</button>
+        </div>
+        <p class="info" data-info-restore aria-live="polite"></p>
+      </div>
+    </section>
+
+    <section id="repo">
+      <h2 class="reveal">Repo = cala teczka, nie jeden plik</h2>
+      <p class="reveal">Git nie pilnuje pojedynczego pliku. Pilnuje <strong>calej teczki projektu</strong> - wszystkich plikow naraz. Kazda zapisana wersja to zdjecie calej teczki.</p>
+      <div class="reveal panel">
+        <div class="folder" data-folder></div>
+        <p class="info">To Twoje repozytorium: folder ze wszystkimi plikami + historia jego wersji.</p>
+      </div>
+    </section>
+
+    <section id="push-pull">
+      <h2 class="reveal">Push i pull - wspolna polka</h2>
+      <p class="reveal"><strong>Push</strong> kopiuje Twoje wersje na wspolna polke (na komputerze zostaja). <strong>Pull</strong> pobiera z polki cudze wersje. To wymiana kopii miedzy dwoma osobnymi miejscami, a nie wspolny ekran na zywo.</p>
+      <div class="reveal panel">
+        <div class="polki">
+          <div class="polka"><h3 class="mini">Twoja kopia (komputer)</h3><div class="lista-wersji" data-lista-lokalna></div></div>
+          <div class="polka"><h3 class="mini">Wspolna polka (chmura)</h3><div class="lista-wersji" data-lista-zdalna></div></div>
+        </div>
+        <div class="akcje">
+          <button type="button" class="btn" data-push>Wyslij na polke (push)</button>
+          <button type="button" class="btn wtorny" data-kolega>Kolega dodal wersje na polce</button>
+          <button type="button" class="btn wtorny" data-pull>Pobierz z polki (pull)</button>
+        </div>
+        <p class="info" data-info-chmura aria-live="polite"></p>
+      </div>
+    </section>
+
+    <section id="branch-merge">
+      <h2 class="reveal">Galaz i scalenie <span class="tag">warto wiedziec</span></h2>
+      <p class="reveal">Chcesz cos przetestowac bez ryzyka? Robisz <strong>osobny tor</strong> (galaz). Glowna wersja zostaje nietknieta. Gdy eksperyment sie udal, <strong>scalasz</strong> (merge) - na glownej powstaje nowy punkt scalajacy, ktory laczy oba tory.</p>
+      <div class="reveal panel">
+        <div class="tory">
+          <div class="tor"><h3 class="mini">Tor glowny</h3><div class="lista-wersji" data-tor-glowna></div></div>
+          <div class="tor"><h3 class="mini">Tor eksperyment</h3><div class="lista-wersji" data-tor-eksperyment></div></div>
+        </div>
+        <div class="akcje">
+          <button type="button" class="btn wtorny" data-eksperyment>Eksperyment: nowa wersja</button>
+          <button type="button" class="btn" data-merge>Wnies zmiany do glownej (merge)</button>
+        </div>
+        <p class="info" data-info-galaz aria-live="polite"></p>
+      </div>
+    </section>
+
+    <section id="granice">
+      <h2 class="reveal">Gdzie metafora peka</h2>
+      <ul class="reveal" style="max-width:64ch; line-height:1.8;" data-granice></ul>
+    </section>
+
+    <section id="ai">
+      <h2 class="reveal">Co powiedziec AI</h2>
+      <p class="reveal">Nie musisz znac komend. Wystarczy, ze wiesz, o co poprosic Claude Code:</p>
+      <ul class="reveal" style="max-width:64ch; line-height:1.9;" data-prompty></ul>
+    </section>
+
+    <section id="slownik">
+      <h2 class="reveal">Slowniczek</h2>
+      <table class="reveal slownik" data-slownik></table>
+      <div class="reveal quiz" data-quiz></div>
+    </section>
+
+  </main>
+  <script>"use strict";
+
+  /* ===== MODEL DANYCH ===== */
+  const PLIKI = ['index.html', 'style.css', 'tekst.md'];
+  const POCZATEK = ['<h1>Moja strona</h1>'];
+  const EDYCJE = [
+    { opis: 'AI dodaje powitanie',      tresc: ['<h1>Moja strona</h1>', '<p>Witaj!</p>'] },
+    { opis: 'AI dodaje przycisk Zamow', tresc: ['<h1>Moja strona</h1>', '<p>Witaj!</p>', '<button>Zamow</button>'] },
+    { opis: 'AI poprawia powitanie',    tresc: ['<h1>Moja strona</h1>', '<p>Witaj serdecznie!</p>', '<button>Zamow</button>'] },
+    { opis: 'AI dodaje stopke',         tresc: ['<h1>Moja strona</h1>', '<p>Witaj serdecznie!</p>', '<button>Zamow</button>', '<footer>(c) 2026</footer>'] }
+  ];
+  const TRESC_EKSPERYMENT = ['<h1>Moja strona</h1>', '<p>Witaj!</p>', '<nav>nowy uklad menu</nav>'];
+
+  const stan = { wersje: [], aktywnaId: null, edycjaIdx: 0, oczekujaca: null, naPolceObce: [] };
+  let licznikId = 0;
+
+  /* ===== HELPERY ===== */
+  function teraz(){ return new Date().toLocaleString('pl-PL', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }); }
+  function escHtml(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function aktywna(){ return stan.wersje.find(w => w.id === stan.aktywnaId) || null; }
+  function trescAktywna(){ return aktywna() ? aktywna().tresc : POCZATEK; }
+  function najnowszaId(){ return stan.wersje.length ? stan.wersje[stan.wersje.length - 1].id : null; }
+  function wersjaPo(id){ return stan.wersje.find(w => w.id === id); }
+
+  /* ===== DIFF ===== */
+  // Roznica zbiorow linii (set diff) - wystarcza dla statycznych, unikalnych linii w EDYCJE.
+  function liczDiff(od, doW){
+    const a = od || [], b = doW || [], wynik = [];
+    b.forEach(l => { if(!a.includes(l)) wynik.push({typ:'add', tekst:l}); });
+    a.forEach(l => { if(!b.includes(l)) wynik.push({typ:'del', tekst:l}); });
+    return wynik;
+  }
+  function diffHtml(d){
+    if(!d.length) return '(brak roznic)';
+    return d.map(x => '<span class="' + (x.typ === 'add' ? 'add' : 'del') + '">'
+      + (x.typ === 'add' ? '+ ' : '- ') + escHtml(x.tekst) + '</span>').join('');
+  }
+
+  /* ===== RENDER ===== */
+  function renderFolder(){
+    document.querySelectorAll('[data-folder]').forEach(el => {
+      el.innerHTML = PLIKI.map(p => '<span class="plik">' + p + '</span>').join('');
+    });
+  }
+  function rysujListe(el, wersje){
+    el.innerHTML = '';
+    if(!wersje.length){ el.innerHTML = '<p class="info">Brak wersji.</p>'; return; }
+    wersje.forEach(w => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'wersja' + (w.id === stan.aktywnaId ? ' aktywna' : '')
+        + (w.galaz === 'eksperyment' ? ' galaz-eksperyment' : '') + (w.scalona ? ' scalona' : '');
+      b.setAttribute('aria-label', 'Wersja: ' + w.nazwa + ', ' + w.galaz + ', ' + w.data + (w.id === stan.aktywnaId ? ', aktywna' : ''));
+      b.innerHTML = '<span class="nazwa">' + escHtml(w.nazwa) + '</span><span class="meta">' + w.galaz + ' - ' + w.data + '</span>';
+      b.addEventListener('click', () => klikWersji(w.id));
+      el.appendChild(b);
+    });
+  }
+  function renderListy(){
+    document.querySelectorAll('[data-lista]').forEach(el => rysujListe(el, stan.wersje));
+  }
+  function renderDiffOczekujacej(){
+    const el = document.querySelector('[data-diff]');
+    const ban = document.querySelector('[data-oczekujaca]');
+    if(!el) return;
+    if(stan.oczekujaca){
+      el.innerHTML = diffHtml(stan.oczekujaca.diff);
+      if(ban){ ban.hidden = false; ban.textContent = 'Zmiana niezapisana: "' + stan.oczekujaca.opis + '". Kliknij "Zapisz wersje (commit)", aby ja utrwalic.'; }
+    } else {
+      el.textContent = 'Brak zmian do pokazania. Kliknij "AI wprowadza zmiane".';
+      if(ban) ban.hidden = true;
+    }
+  }
+  function renderTekstHistoria(){
+    const el = document.querySelector('[data-tekst-historia]');
+    if(!el) return;
+    el.innerHTML = stan.wersje.map(w => {
+      const rodzic = w.parentId ? ('#' + w.parentId) : 'brak';
+      return '<li>Commit #' + w.id + ', "' + escHtml(w.nazwa) + '", galaz ' + escHtml(w.galaz)
+        + ', rodzic ' + escHtml(rodzic) + (w.naPolce ? ', na polce' : ', tylko lokalnie')
+        + (w.id === stan.aktywnaId ? ', aktywny' : '') + '</li>';
+    }).join('');
+  }
+  function renderTory(){
+    const g = document.querySelector('[data-tor-glowna]');
+    const e = document.querySelector('[data-tor-eksperyment]');
+    if(g) rysujListe(g, stan.wersje.filter(w => w.galaz === 'glowna'));
+    if(e) rysujListe(e, stan.wersje.filter(w => w.galaz === 'eksperyment'));
+  }
+
+  /* ===== PUSH/PULL - renderPolki ===== */
+  function renderPolki(){
+    const lokalna = document.querySelector('[data-lista-lokalna]');
+    const zdalna = document.querySelector('[data-lista-zdalna]');
+    if(lokalna) rysujListe(lokalna, stan.wersje);
+    if(zdalna){
+      const naPolce = stan.wersje.filter(w => w.naPolce).concat(stan.naPolceObce);
+      rysujListe(zdalna, naPolce);
+    }
+  }
+
+  /* Stan do renderu: zmiana oczekujaca (przed commitem) ma priorytet, potem tresc aktywnej wersji. */
+  function trescDoRender(){ return stan.oczekujaca ? stan.oczekujaca.tresc : trescAktywna(); }
+  function renderStrona(){
+    const el = document.querySelector('[data-render]'); if(!el) return;
+    const html = (trescDoRender() || []).join('\n');
+    el.srcdoc = '<!DOCTYPE html><html lang="pl"><head><meta charset="utf-8"><style>body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;color:#1f2328;margin:0;padding:14px;line-height:1.5;}</style></head><body>' + html + '</body></html>';
+  }
+
+  function renderWszystko(){ renderFolder(); renderListy(); renderDiffOczekujacej(); renderTory(); renderPolki(); renderTekstHistoria(); renderStrona(); }
+
+  /* ===== TEKSTY (A7) ===== */
+  const GRANICE = [
+    'Git <strong>nigdy nie nadpisuje</strong> - kazdy commit to nowy punkt; stare zostaja.',
+    'Edytor z autozapisem i edycja na zywo (Google Docs) dziala <strong>odwrotnie</strong>: Git ma swiadome, zamrozone commity i osobne kopie.',
+    'Push/pull to <strong>wymiana kopii</strong>, nie wspolny ekran na zywo.',
+    'W prawdziwym Gicie mozesz wybrac, ktore zmiany zapisac (tu zapisujemy calosc).',
+    'Realne scalanie bywa trudniejsze (konflikty) - tu wersja uproszczona.'
+  ];
+  const PROMPTY = [
+    '"Pokaz, co sie zmienilo od ostatniego zapisu" (diff).',
+    '"Zrob commit tylko tych zmian z opisem \'dodalem przycisk zamow\'".',
+    '"Pokaz plan cofniecia i nic nie zmieniaj bez mojego potwierdzenia" (bezpieczny restore).',
+    '"Cofnij projekt do wersji sprzed tej zmiany" (restore).',
+    '"Nie wysylaj jeszcze na GitHub" (wstrzymaj push).',
+    '"Pobierz najnowsze zmiany z repozytorium" (pull).',
+    '"Zaloz osobna galaz na eksperyment z nowym ukladem" (branch).',
+    '"Scal galaz \'nowy-uklad\' z glowna" (merge).'
+  ];
+  const SLOWNIK = [
+    ['repo', 'cala teczka projektu ze wszystkimi wersjami (nie jeden plik)'],
+    ['commit', 'swiadomie zapisana, nazwana wersja; nic nie nadpisuje'],
+    ['diff', 'co sie zmienilo miedzy dwiema wersjami'],
+    ['cofniecie / restore', 'przywrocenie podgladu do starszej wersji; historia zostaje'],
+    ['branch (galaz)', 'osobny tor na eksperyment'],
+    ['merge', 'scalenie zmian z galezi do glownej (nowy punkt scalajacy)'],
+    ['push', 'skopiowanie wersji na wspolna polke'],
+    ['pull', 'pobranie cudzych wersji z polki']
+  ];
+  const QUIZ = [
+    ['Czy stara wersja ginie, gdy zapiszesz nowa?', 'Nie. Git nigdy nie nadpisuje - kazdy commit to nowy punkt, stare zostaja.'],
+    ['Po co osobna galaz (eksperyment)?', 'Zeby bezpiecznie testowac - tor glowny zostaje nietkniety.'],
+    ['Czym rozni sie push od pull?', 'Push kopiuje Twoje wersje na polke; pull pobiera stamtad cudze wersje.']
+  ];
+
+  function renderTeksty(){
+    const g = document.querySelector('[data-granice]'); if(g) g.innerHTML = GRANICE.map(t => '<li>' + t + '</li>').join('');
+    const p = document.querySelector('[data-prompty]'); if(p) p.innerHTML = PROMPTY.map(t => '<li>' + t + '</li>').join('');
+    const s = document.querySelector('[data-slownik]'); if(s) s.innerHTML = '<tr><th>Git</th><th>Wyjasnienie</th></tr>' + SLOWNIK.map(r => '<tr><td>' + r[0] + '</td><td>' + r[1] + '</td></tr>').join('');
+    const q = document.querySelector('[data-quiz]');
+    if(q){
+      q.innerHTML = '<h3 style="font-size:20px;">Sprawdz sie</h3>' + QUIZ.map((r, i) =>
+        '<div class="pyt"><p>' + (i+1) + '. ' + r[0] + '</p>'
+        + '<button type="button" class="btn wtorny" data-odp="odp' + i + '" aria-expanded="false" aria-controls="odp' + i + '">Pokaz odpowiedz</button>'
+        + '<div class="odp" id="odp' + i + '" hidden>' + r[1] + '</div></div>').join('');
+      q.querySelectorAll('button[data-odp]').forEach(b => {
+        const odp = document.getElementById(b.dataset.odp);
+        b.addEventListener('click', () => {
+          const pokaz = odp.hidden; odp.hidden = !pokaz;
+          b.setAttribute('aria-expanded', String(pokaz));
+          b.textContent = pokaz ? 'Ukryj odpowiedz' : 'Pokaz odpowiedz';
+        });
+      });
+    }
+  }
+
+  /* ===== LOGIKA A4: sekwencja AI->diff->commit, restore, klik wersji ===== */
+  function setInfo(sel, t){ const el = document.querySelector(sel); if(el) el.textContent = t; }
+
+  // Krok 1 narracji: AI wprowadza zmiane (niezapisana) i pokazuje diff. NIE tworzy wersji.
+  function aiWprowadzaZmiane(){
+    if(stan.oczekujaca){ renderDiffOczekujacej(); return; }
+    if(stan.edycjaIdx >= EDYCJE.length){
+      const ban = document.querySelector('[data-oczekujaca]'); if(ban){ ban.hidden = false; ban.textContent = 'To juz wszystkie przykladowe zmiany AI w tym demo.'; }
+      return;
+    }
+    const ed = EDYCJE[stan.edycjaIdx];
+    const diff = liczDiff(trescAktywna(), ed.tresc);
+    if(!diff.length){ stan.edycjaIdx++; aiWprowadzaZmiane(); return; } // straznik pustego commita
+    stan.oczekujaca = { opis: ed.opis, tresc: ed.tresc, diff: diff };
+    renderDiffOczekujacej();
+    renderStrona();
+  }
+
+  // Krok 2 narracji: swiadomy commit zmiany oczekujacej.
+  function zapiszCommit(){
+    if(!stan.oczekujaca){
+      const ban = document.querySelector('[data-oczekujaca]');
+      if(ban){ ban.hidden = false; ban.textContent = 'Brak zmian do zapisania - najpierw kliknij "AI wprowadza zmiane".'; }
+      return;
+    }
+    const w = {
+      id: ++licznikId, nazwa: stan.oczekujaca.opis, data: teraz(),
+      galaz: 'glowna', parentId: stan.aktywnaId, parents: stan.aktywnaId ? [stan.aktywnaId] : [],
+      tresc: stan.oczekujaca.tresc, naPolce: false
+    };
+    stan.wersje.push(w); stan.aktywnaId = w.id; stan.edycjaIdx++; stan.oczekujaca = null;
+    renderWszystko();
+  }
+
+  // Klik wersji = restore podgladu + pokaz jej diff wzgledem rodzica.
+  function klikWersji(id){
+    const w = wersjaPo(id); if(!w) return;
+    stan.aktywnaId = id;
+    const rodzic = w.parentId ? wersjaPo(w.parentId) : null;
+    const bazaTresc = rodzic ? rodzic.tresc : POCZATEK;
+    const el = document.querySelector('[data-diff]');
+    if(el) el.innerHTML = diffHtml(liczDiff(bazaTresc, w.tresc));
+    const ban = document.querySelector('[data-oczekujaca]'); if(ban) ban.hidden = true;
+    stan.oczekujaca = null;
+    renderListy(); renderTory(); renderPolki(); renderTekstHistoria(); renderStrona();
+    setInfo('[data-info-restore]', 'Przywrocono podglad wersji "' + w.nazwa + '". Historia zostaje. Zapis po przywroceniu utworzy nowy punkt na jej bazie.');
+  }
+
+  function wrocDoNajnowszej(){ const id = najnowszaId(); if(id) klikWersji(id); }
+
+  function initReveal(){
+    const els = document.querySelectorAll('.reveal');
+    const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if(reduce || !('IntersectionObserver' in window)){ els.forEach(e => e.classList.add('is-visible')); return; }
+    const obs = new IntersectionObserver(es => es.forEach(e => { if(e.isIntersecting){ e.target.classList.add('is-visible'); obs.unobserve(e.target); } }), { threshold: 0.15 });
+    els.forEach(e => obs.observe(e));
+  }
+
+  function podepnijA4(){
+    document.querySelectorAll('[data-ai-zmiana]').forEach(b => b.addEventListener('click', aiWprowadzaZmiane));
+    document.querySelectorAll('[data-zapisz]').forEach(b => b.addEventListener('click', zapiszCommit));
+    const n = document.querySelector('[data-najnowszy]'); if(n) n.addEventListener('click', wrocDoNajnowszej);
+  }
+
+  /* ===== LOGIKA A5: galaz i merge ===== */
+  function eksperyment(){
+    const w = {
+      id: ++licznikId, nazwa: 'nowy uklad (eksperyment)', data: teraz(),
+      galaz: 'eksperyment', parentId: stan.aktywnaId, parents: stan.aktywnaId ? [stan.aktywnaId] : [],
+      tresc: TRESC_EKSPERYMENT.slice(), naPolce: false
+    };
+    stan.wersje.push(w); stan.aktywnaId = w.id; stan.oczekujaca = null;
+    renderWszystko();
+    setInfo('[data-info-galaz]', 'Utworzono osobny tor "eksperyment". Tor glowny pozostaje nietkniety.');
+  }
+  function wniesZmiany(){
+    const exp = stan.wersje.filter(w => w.galaz === 'eksperyment');
+    if(!exp.length){ setInfo('[data-info-galaz]', 'Najpierw kliknij "Eksperyment: nowa wersja", zeby bylo co scalic.'); return; }
+    const glowne = stan.wersje.filter(w => w.galaz === 'glowna');
+    const tipGlowna = glowne.length ? glowne[glowne.length - 1].id : null;
+    const tipExp = exp[exp.length - 1];
+    const w = {
+      id: ++licznikId, nazwa: 'scalono zmiany z eksperymentu', data: teraz(),
+      galaz: 'glowna', parentId: tipGlowna, parents: [tipGlowna, tipExp.id].filter(Boolean),
+      tresc: tipExp.tresc.slice(), naPolce: false, scalona: true
+    };
+    stan.wersje.push(w); stan.aktywnaId = w.id;
+    renderWszystko();
+    setInfo('[data-info-galaz]', 'Scalono. Na torze glownym powstal nowy punkt scalajacy (rodzice: #' + w.parents.join(' i #') + '), laczacy oba tory.');
+  }
+  function podepnijA5(){
+    const e = document.querySelector('[data-eksperyment]'); if(e) e.addEventListener('click', eksperyment);
+    const m = document.querySelector('[data-merge]'); if(m) m.addEventListener('click', wniesZmiany);
+  }
+
+  /* ===== LOGIKA A6: push/pull ===== */
+  function push(){
+    let n = 0;
+    stan.wersje.forEach(w => { if(!w.naPolce){ w.naPolce = true; n++; } });
+    renderPolki(); renderTekstHistoria();
+    setInfo('[data-info-chmura]', n ? ('Skopiowano ' + n + ' wersji na polke. Na komputerze nadal je masz - to kopia.') : 'Wszystko juz bylo na polce.');
+  }
+  function kolegaDodaje(){
+    stan.naPolceObce.push({ id: 'k' + (stan.naPolceObce.length + 1), nazwa: 'zmiana od kolegi', data: teraz(), galaz: 'glowna', parentId: najnowszaId(), naPolce: true });
+    renderPolki();
+    setInfo('[data-info-chmura]', 'Kolega dodal wersje na polce. Nie masz jej jeszcze u siebie - kliknij "Pobierz z polki (pull)".');
+  }
+  function pull(){
+    if(!stan.naPolceObce.length){ setInfo('[data-info-chmura]', 'Nie ma nic nowego do pobrania. (Najpierw "Kolega dodal wersje na polce".)'); return; }
+    const bazaTresc = trescAktywna().slice();
+    let n = 0;
+    stan.naPolceObce.forEach(o => {
+      const parentId = najnowszaId();
+      stan.wersje.push({ id: ++licznikId, nazwa: o.nazwa, data: o.data, galaz: 'glowna', parentId: parentId, parents: parentId ? [parentId] : [], tresc: bazaTresc.slice(), naPolce: true });
+      stan.aktywnaId = licznikId; n++;
+    });
+    stan.naPolceObce = [];
+    renderWszystko();
+    setInfo('[data-info-chmura]', 'Pobrano ' + n + ' wersji z polki i dolaczono do Twojej kopii.');
+  }
+  function podepnijA6(){
+    const pu = document.querySelector('[data-push]'); if(pu) pu.addEventListener('click', push);
+    const ko = document.querySelector('[data-kolega]'); if(ko) ko.addEventListener('click', kolegaDodaje);
+    const pl = document.querySelector('[data-pull]'); if(pl) pl.addEventListener('click', pull);
+  }
+
+  /* ===== INIT ===== */
+  function init(){
+    renderTeksty();   // A7
+    // wersja poczatkowa (commit "start projektu")
+    stan.wersje.push({ id: ++licznikId, nazwa: 'start projektu', data: teraz(), galaz: 'glowna', parentId: null, parents: [], tresc: POCZATEK, naPolce: false });
+    stan.aktywnaId = licznikId;
+    renderWszystko();
+    initReveal();
+    podepnijA4(); podepnijA5(); podepnijA6();
+  }
+  document.addEventListener('DOMContentLoaded', init);
+
+  </script>
+</body>
+</html>
